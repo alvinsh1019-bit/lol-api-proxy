@@ -1,0 +1,461 @@
+openapi: 3.1.0
+info:
+  title: League of Legends API Proxy
+  description: |
+    League of Legends 데이터 조회를 위한 Riot API 프록시 서버
+    
+    ## 사용법
+    1. **소환사 조회**: `/api/summoner/{gameName}/{tagLine}`
+    2. **랭크 조회**: `/api/rank/{puuid}`
+    
+    ## 지원 지역
+    - **americas**: 북미, 브라질, 라틴 아메리카
+    - **asia**: 한국, 일본, 오세아니아  
+    - **europe**: 유럽 서부/동부, 터키, 러시아
+    - **sea**: 동남아시아 (필리핀, 싱가포르, 태국, 대만, 베트남)
+  version: 1.0.0
+  contact:
+    name: API Support
+    url: https://developer.riotgames.com/
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://lol-api-proxy-m6gq.vercel.app
+    description: Production Server
+
+paths:
+  /api/summoner/{gameName}/{tagLine}:
+    get:
+      operationId: getSummonerInfo
+      summary: 소환사 기본 정보 조회
+      description: |
+        Riot ID (게임명#태그라인)로 소환사의 기본 정보를 조회합니다.
+        
+        **예시**: 
+        - `Hide on bush#KR1`
+        - `가을#1201`
+        
+        **주의사항**:
+        - 게임명에 공백이 있는 경우 URL 인코딩 필요
+        - 한글 소환사명도 지원
+      parameters:
+        - name: gameName
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 게임 내 이름 (공백은 %20으로 인코딩)
+          example: "Hide%20on%20bush"
+        - name: tagLine  
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 태그라인 (예 - KR1, NA1, EUW1 등)
+          example: "KR1"
+        - name: region
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [americas, asia, europe, sea]
+            default: asia
+          description: 대륙별 지역
+        - name: server
+          in: query
+          required: false
+          schema:
+            type: string  
+            enum: [kr, jp1, na1, br1, lan, las, oc1, euw1, eun1, tr1, ru]
+            default: kr
+          description: 구체적인 서버 (소환사 정보 조회용)
+      responses:
+        '200':
+          description: 소환사 정보 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SummonerResponse'
+        '400':
+          description: 잘못된 요청 (파라미터 오류)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 소환사를 찾을 수 없음
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 서버 내부 오류
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/rank/{puuid}:
+    get:
+      operationId: getRankInfo
+      summary: 소환사 랭크 정보 조회  
+      description: |
+        PUUID로 소환사의 랭크 정보를 조회합니다.
+        
+        **지원하는 랭크 큐**:
+        - RANKED_SOLO_5x5 (솔로랭크)
+        - RANKED_FLEX_SR (자유랭크)
+        - RANKED_FLEX_TT (3v3 팀랭크, 사용 중지)
+      parameters:
+        - name: puuid
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 플레이어 고유 ID (소환사 조회에서 획득)
+          example: "abcd1234-efgh-5678-ijkl-mnop9012qrst"
+        - name: server
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [kr, jp1, na1, br1, lan, las, oc1, euw1, eun1, tr1, ru]
+            default: kr
+          description: 서버 선택
+      responses:
+        '200':
+          description: 랭크 정보 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RankResponse'
+        '400':
+          description: 잘못된 요청
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 해당 서버에서 소환사를 찾을 수 없음
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    SummonerResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          description: 요청 성공 여부
+          example: true
+        data:
+          type: object
+          required: [puuid, gameName, tagLine]
+          properties:
+            puuid:
+              type: string
+              description: 플레이어 고유 ID (다른 API 호출에 사용)
+              example: "abcd1234-efgh-5678-ijkl-mnop9012qrst"
+            gameName:
+              type: string
+              description: 게임 내 이름
+              example: "Hide on bush"
+            tagLine:
+              type: string  
+              description: 태그라인
+              example: "KR1"
+            summonerId:
+              type: string
+              description: 소환사 ID (서버별, 있는 경우만)
+              example: "abc123def456"
+            accountId:
+              type: string
+              description: 계정 ID (서버별, 있는 경우만)
+              example: "xyz789uvw012"
+            summonerLevel:
+              type: integer
+              description: 소환사 레벨 (있는 경우만)
+              example: 147
+            profileIconId:
+              type: integer
+              description: 프로필 아이콘 ID (있는 경우만)
+              example: 4568
+            revisionDate:
+              type: integer
+              description: 마지막 업데이트 시간 timestamp (있는 경우만)
+              example: 1703123456789
+        metadata:
+          type: object
+          properties:
+            region:
+              type: string
+              description: 사용된 지역
+              example: "asia"
+            server:
+              type: string
+              description: 사용된 서버
+              example: "kr"
+            timestamp:
+              type: string
+              format: date-time
+              description: 조회 시간
+              example: "2024-12-21T10:30:45.123Z"
+
+    RankResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            puuid:
+              type: string
+              example: "abcd1234-efgh-5678-ijkl-mnop9012qrst"
+            summonerId:
+              type: string
+              example: "abc123def456"
+            summonerLevel:
+              type: integer
+              example: 147
+            ranks:
+              type: array
+              description: 랭크 정보 배열 (보통 1-2개, 솔로랭크/자유랭크)
+              items:
+                $ref: '#/components/schemas/RankInfo'
+            summary:
+              type: object
+              properties:
+                totalRankedQueues:
+                  type: integer
+                  description: 랭크를 플레이하는 큐 개수
+                  example: 2
+                highestTier:
+                  type: string
+                  description: 가장 높은 티어
+                  example: "DIAMOND"
+        metadata:
+          type: object
+          properties:
+            server:
+              type: string
+              example: "kr"
+            timestamp:
+              type: string
+              format: date-time
+
+    RankInfo:
+      type: object
+      required: [queueType, tier, rank, leaguePoints, wins, losses, winRate]
+      properties:
+        queueType:
+          type: string
+          description: 랭크 큐 타입
+          enum: [RANKED_SOLO_5x5, RANKED_FLEX_SR, RANKED_FLEX_TT]
+          example: "RANKED_SOLO_5x5"
+        tier:
+          type: string
+          description: 티어
+          enum: [IRON, BRONZE, SILVER, GOLD, PLATINUM, EMERALD, DIAMOND, MASTER, GRANDMASTER, CHALLENGER]
+          example: "DIAMOND"
+        rank:
+          type: string
+          description: 랭크 (마스터 이상은 해당없음)
+          enum: [I, II, III, IV]
+          example: "II"
+        leaguePoints:
+          type: integer
+          description: 리그 포인트
+          minimum: 0
+          maximum: 100
+          example: 67
+        wins:
+          type: integer
+          description: 승리 횟수
+          minimum: 0
+          example: 45
+        losses:
+          type: integer
+          description: 패배 횟수
+          minimum: 0
+          example: 32
+        winRate:
+          type: number
+          description: 승률 (퍼센트)
+          minimum: 0
+          maximum: 100
+          example: 58.44
+        veteran:
+          type: boolean
+          description: 베테랑 여부
+          example: false
+        inactive:
+          type: boolean
+          description: 비활성 상태
+          example: false
+        freshBlood:
+          type: boolean
+          description: 신규 진입자 여부
+          example: true
+        hotStreak:
+          type: boolean
+          description: 연승 중 여부
+          example: false
+        leagueName:
+          type: string
+          nullable: true
+          description: 리그 이름 (마스터 이상)
+          example: "Azir's Marksmen"
+        miniSeries:
+          type: object
+          nullable: true
+          description: 승급전 정보 (진행중인 경우만)
+          properties:
+            target:
+              type: integer
+              description: 승급전 목표 승수
+              example: 3
+            wins:
+              type: integer
+              description: 승급전 현재 승수
+              example: 1
+            losses:
+              type: integer
+              description: 승급전 현재 패수
+              example: 1
+            progress:
+              type: string
+              description: 승급전 진행상황 (W=승리, L=패배, N=미진행)
+              example: "WLN"
+
+    ErrorResponse:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          description: 항상 false
+          example: false
+        error:
+          type: string
+          description: 오류 유형
+          example: "Summoner not found"
+        message:
+          type: string
+          description: 자세한 오류 메시지
+          example: "No summoner found with Riot ID: 가을#1201"
+        status:
+          type: integer
+          description: HTTP 상태 코드
+          example: 404
+        details:
+          type: object
+          description: 추가 오류 정보
+          additionalProperties: true
+        suggestions:
+          type: array
+          items:
+            type: string
+          description: 문제 해결 제안사항
+          example: [
+            "Check the spelling of the game name",
+            "Verify the tag line (e.g., KR1, NA1, EUW1)",
+            "Make sure the account exists in the specified region"
+          ]
+
+  examples:
+    SuccessfulSummonerLookup:
+      summary: 성공적인 소환사 조회
+      value:
+        success: true
+        data:
+          puuid: "abcd1234-efgh-5678-ijkl-mnop9012qrst"
+          gameName: "Hide on bush"
+          tagLine: "KR1"
+          summonerId: "abc123def456"
+          accountId: "xyz789uvw012"
+          summonerLevel: 147
+          profileIconId: 4568
+          revisionDate: 1703123456789
+        metadata:
+          region: "asia"
+          server: "kr"
+          timestamp: "2024-12-21T10:30:45.123Z"
+    
+    SummonerNotFound:
+      summary: 소환사를 찾을 수 없음
+      value:
+        success: false
+        error: "Summoner not found"
+        message: "No summoner found with Riot ID: 가을#1201"
+        suggestions: [
+          "Check the spelling of the game name",
+          "Verify the tag line (e.g., KR1, NA1, EUW1)", 
+          "Make sure the account exists in the specified region"
+        ]
+    
+    SuccessfulRankLookup:
+      summary: 성공적인 랭크 조회
+      value:
+        success: true
+        data:
+          puuid: "abcd1234-efgh-5678-ijkl-mnop9012qrst"
+          summonerId: "abc123def456"
+          summonerLevel: 147
+          ranks: [
+            {
+              queueType: "RANKED_SOLO_5x5",
+              tier: "DIAMOND",
+              rank: "II", 
+              leaguePoints: 67,
+              wins: 45,
+              losses: 32,
+              winRate: 58.44,
+              veteran: false,
+              inactive: false,
+              freshBlood: true,
+              hotStreak: false,
+              leagueName: null,
+              miniSeries: null
+            },
+            {
+              queueType: "RANKED_FLEX_SR",
+              tier: "PLATINUM",
+              rank: "I",
+              leaguePoints: 89,
+              wins: 28,
+              losses: 15,
+              winRate: 65.12,
+              veteran: false,
+              inactive: false,
+              freshBlood: false,
+              hotStreak: true,
+              leagueName: null,
+              miniSeries: {
+                target: 3,
+                wins: 2,
+                losses: 0,
+                progress: "WWN"
+              }
+            }
+          ],
+          summary:
+            totalRankedQueues: 2,
+            highestTier: "DIAMOND"
+        metadata:
+          server: "kr"
+          timestamp: "2024-12-21T10:35:22.456Z"
+
+tags:
+  - name: summoner
+    description: 소환사 정보 관련 API
+  - name: rank
+    description: 랭크 정보 관련 API
